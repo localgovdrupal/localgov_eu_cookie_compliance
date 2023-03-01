@@ -38,8 +38,21 @@
     });
   }
   function setupSaveSettingsFeedback() {
-    $(".eu-cookie-compliance-save-preferences-button").click(function (e) {
-      $("<p>".concat(Drupal.t("Saved"), "</p>")).appendTo(e.target).hide(2000);
-    });
+    var saveButton = document.querySelector('.eu-cookie-compliance-save-preferences-button');
+    const saveButtonLabel = saveButton.innerHTML;
+
+    saveButton.addEventListener("click", function () {
+      saveButton.innerHTML = `${Drupal.t("Saving")}`;
+      saveButton.classList.add('spinning');
+
+      setTimeout(function () {
+        saveButton.classList.remove('spinning');
+        saveButton.innerHTML = `${Drupal.t("Preferences saved")}  <i class="fas fa-check"></i>`;
+      }, 2000);
+    }, false);
+
+    saveButton.addEventListener("blur", function () {
+      saveButton.innerHTML = saveButtonLabel;
+    }, false);
   }
 })(jQuery, Drupal);
