@@ -4,41 +4,51 @@
 * https://www.drupal.org/node/2815083
 * @preserve
 **/
+
 (function setupCookieSettingsBlock($, Drupal) {
   Drupal.behaviors.activateCookieSettingsForm = {
-    attach: function attach(context) {
-      var selectedCookieCategories = Drupal.eu_cookie_compliance.getAcceptedCategories();
+    attach(context) {
+      const selectedCookieCategories = Drupal.eu_cookie_compliance.getAcceptedCategories();
+
       Drupal.eu_cookie_compliance.setAcceptedCategories(selectedCookieCategories);
       Drupal.eu_cookie_compliance.loadCategoryScripts(selectedCookieCategories);
+
       Drupal.eu_cookie_compliance.setPreferenceCheckboxes(selectedCookieCategories);
       Drupal.eu_cookie_compliance.attachSavePreferencesEvents();
+
       once("localgov-eu-cookie-compliance-radios", "#eu-cookie-compliance-categories", context).forEach(displayCheckboxAsRadios);
     }
   };
+
   function displayCheckboxAsRadios() {
-    setTimeout(function () {
+    setTimeout(() => {
       hideCheckboxes();
       clickRadiosBasedOnCheckboxStatus();
       setupUpClickHandlersForRadios();
       setupSaveSettingsFeedback();
     }, 300);
   }
+
   function hideCheckboxes() {
     $("[name=cookie-categories]:checkbox").hide();
   }
+
   function clickRadiosBasedOnCheckboxStatus() {
     $("[name=cookie-categories]:checked + .eu-cookie-compliance-categories--on :radio:not(:checked)").prop("checked", true);
     $("[name=cookie-categories]:not(:checked) + .eu-cookie-compliance-categories--on + .eu-cookie-compliance-categories--off :radio:not(:checked)").prop("checked", true);
   }
+
   function setupUpClickHandlersForRadios() {
-    $(".eu-cookie-compliance-categories--on :radio, .eu-cookie-compliance-categories--off :radio").click(function (event) {
-      var key = event.target.value;
-      var relatedCheckboxId = "cookie-category-".concat(key);
-      $("#".concat(relatedCheckboxId)).click();
+    $(".eu-cookie-compliance-categories--on :radio, .eu-cookie-compliance-categories--off :radio").click(event => {
+      const key = event.target.value;
+      const relatedCheckboxId = `cookie-category-${key}`;
+
+      $(`#${relatedCheckboxId}`).click();
     });
   }
+
   function setupSaveSettingsFeedback() {
-    var saveButton = document.querySelector('.eu-cookie-compliance-save-preferences-button');
+    const saveButton = document.querySelector('.eu-cookie-compliance-save-preferences-button');
     const saveButtonLabel = saveButton.innerHTML;
 
     saveButton.addEventListener("click", function () {

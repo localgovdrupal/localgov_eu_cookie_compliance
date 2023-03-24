@@ -103,7 +103,7 @@
    * Provide feedback when the "Save cookie settings" button is clicked.
    */
   function setupSaveSettingsFeedback() {
-    var saveButton = document.querySelector('.eu-cookie-compliance-save-preferences-button');
+    const saveButton = document.querySelector('.eu-cookie-compliance-save-preferences-button');
     const saveButtonLabel = saveButton.innerHTML;
 
     saveButton.addEventListener("click", function () {

@@ -6,7 +6,7 @@
     padding-right: 40px;
 }
 
-.eu-cookie-compliance-save-preferences-button.spinning:before {
+.eu-cookie-compliance-save-preferences-button.spinning::before {
     content: "";
     position: absolute;
     width: 0px;
