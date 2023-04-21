@@ -14,8 +14,11 @@
     border-radius: 50%;
     right: 6px;
     top: 50%;
+    box-shadow: 0 0 2px 0 white;
+    border-right: 3px solid white;
+    /* Set these override rules if you're using the LGD base theme.
     box-shadow: 0 0 2px 0 var(--button-text-color-hover);
-    border-right: 3px solid var(--button-text-color-hover);
+    border-right: 3px solid var(--button-text-color-hover);*/
     animation: rotate360 .5s infinite linear, space .1s forwards ease;
 }
 
