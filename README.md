@@ -30,3 +30,12 @@ The secondary feature mentioned [above](#secondary-feature) works for the [Googl
 
 ## See also
 - [Privacy score measurement](https://rethinkingprivacy.com/).
+
+## Maintainers 
+
+This project is maintained by: 
+
+ - Adnan Muhammad https://github.com/Adnan-cds
+ - Finn Leiws https://github.com/finnlewis
+
+
