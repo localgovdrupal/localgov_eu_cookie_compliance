@@ -1,6 +1,9 @@
 localgov_eu_cookie_compliance:
   js:
     js/localgov_eu_cookie_compliance.js: {}
+  css:
+    theme:
+      css/eu-cookie-compliance.css: {}
   dependencies:
     - eu_cookie_compliance/eu_cookie_compliance_bare
 
