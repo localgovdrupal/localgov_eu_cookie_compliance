@@ -1,3 +1,10 @@
+oembed_cookies:
+  version: VERSION
+  js:
+    js/oembed_cookies.js: {}
+  dependencies:
+    - core/jquery
+
 localgov_eu_cookie_compliance:
   js:
     js/localgov_eu_cookie_compliance.js: {}
