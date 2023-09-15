@@ -116,6 +116,35 @@ function localgov_eu_cookie_compliance_form_eu_cookie_compliance_config_form_alt
     '#convert_path' => PathElement::CONVERT_NONE,
   ];
 
+  // Insert the oembed management section.
+  // First, we define the section.
+  $section = [
+    '#type' => 'details',
+    '#title' => t("Embed handling"),
+    '#open' => TRUE,
+    '#states' => [
+      'visible' => [
+        "input[name='method']" => ['!value' => 'default'],
+      ],
+    ],
+  ];
+
+  // Then find where in the associative array the cookies section is, and
+  // splice the array so the new section is immediately after it in the
+  // implicit ordering. This prevents the new section being at the bottom
+  // of the form, and instead places it with logical siblings.
+  $offset = array_search("cookies", array_keys($form)) + 1;
+  $form = array_slice($form, 0, $offset, TRUE) +
+          ['oembed' => $section] +
+          array_slice($form, $offset, NULL, TRUE);
+
+  $form['oembed']['disabled_oembeds'] = [
+    '#type' => 'textarea',
+    '#title' => t('Disable OEmbed sources'),
+    '#default_value' => $config->get('disabled_oembeds'),
+    '#description' => t("<span class='eu-cookie-compliance-word-break'>Include the domain to block embeds from, each on a separate line. You may use wildcards, such as <kbd>*youtube.com</kbd>. <br><br> When using the consent method 'Opt-in with categories', you can link the script to a specific category by using the format: '<kbd>google_cookies:*youtube.com</kbd>'.<br><br>Any embed not explicitly blocked is allowed. To alter this behaviour, finish with a <kbd>*</kbd> rule."),
+  ];
+
   $form['#submit'][] = '_localgov_eu_cookie_compliance_path_submit';
 }
 
@@ -136,12 +165,14 @@ function localgov_eu_cookie_compliance_page_attachments_alter(array &$attachment
 function _localgov_eu_cookie_compliance_path_submit(array &$form, FormStateInterface $form_state) {
 
   $cookie_settings_page_path = $form_state->getValue('cookie-settings-page-path');
+  $disabled_oembeds = $form_state->getValue('disabled_oembeds');
   $path_w_leading_slash = '/' . trim($cookie_settings_page_path, '/');
 
   $config_factory = \Drupal::service('config.factory');
   $config = $config_factory->getEditable('localgov_eu_cookie_compliance.settings');
 
   $config->set('cookie-settings-page-path', $path_w_leading_slash);
+  $config->set('disabled_oembeds', $disabled_oembeds);
   $config->save();
 }
 
@@ -216,4 +247,147 @@ function _localgov_eu_cookie_compliance_defer_tracker_scripts(array &$attachment
   }, []);
 
   $attachment_list['#attached']['drupalSettings']['deferred_scripts'] = json_encode($deferred_head_items_markup);
+}
+
+/**
+ * Based on the implementation at https://git.drupalcode.org/project/cookies/-/blob/2.x/modules/cookies_video/cookies_video.module under GPLv2.
+ *
+ * Implements hook_preprocess_HOOK().
+ */
+function localgov_eu_cookie_compliance_preprocess_field(&$variables) {
+  $formatter = $variables["element"]["#formatter"];
+  if ($formatter === 'oembed') {
+    localgov_eu_cookie_compliance_media_oembed_handler($variables);
+  }
+}
+
+/**
+ * Handling oembed field formatters.
+ *
+ * @param array $variables
+ *   Field template variables (s. cookies_video_preprocess_field()).
+ */
+function localgov_eu_cookie_compliance_media_oembed_handler(array &$variables) {
+  $formatter = $variables["element"]["#formatter"];
+  /** @var \Drupal\Core\Field\FieldItemList $field_item */
+  $field_item = $variables['element']['#items'];
+  /** @var \Drupal\media\Entity\Media $media */
+  $media = $variables['element']['#object'];
+  $media_id = $media->id();
+  $variables['attributes']['class'][] = "media-oembed-$media_id";
+  $field_value = $field_item->getValue();
+  if (isset($field_value) && !empty($field_value)) {
+    $field_value = reset($field_value);
+    $video_src = $field_value['value'];
+  }
+
+  // Get the oembed settings lines and split them out.
+  $oembed_settings = Drupal::config('localgov_eu_cookie_compliance.settings')->get('disabled_oembeds') ?? "";
+  $disabled_oembeds = explode("\n", trim($oembed_settings));
+
+  // Convert the domains with optional category into an associative
+  // array of domain to category.
+  $blocked_domains = [];
+  foreach ($disabled_oembeds as $embed) {
+    // Extract the category condition, if present.
+    $parts = explode(':', $embed);
+    if (count($parts) == 1) {
+      $condition = "";
+      $embed = $parts[0];
+    }
+    else {
+      $condition = $parts[0];
+      $embed = end($parts);
+    }
+    $blocked_domains[$embed] = $condition;
+  }
+
+  foreach ($variables["items"] as &$item) {
+    switch ($formatter) {
+      case 'oembed':
+        // Get the video src being embedded.
+        $item["content"]["#attributes"]['data-src'] = $video_src;
+        $parsed = parse_url($video_src);
+
+        // Check against each rule.
+        foreach ($blocked_domains as $domain => $condition) {
+          // Convert the domain specification to a regex by:
+          // 1. Trim and quote the entered domain.
+          // 2. Replace * and ? with .* and . respectively.
+          // 3. Wrap in a case-insensitive search.
+          $regex = str_replace(
+            "\\?",
+            ".",
+            str_replace(
+              "\\*",
+              ".*",
+              preg_quote(trim($domain))
+            )
+          );
+          $regex = "/" . $regex . "/i";
+
+          // If the built regex matches, replace this item.
+          if (preg_match($regex, $parsed["host"])) {
+            // Add a class to the generated video markup.
+            $video = localgov_eu_cookie_compliance_preprocess_field_item_oembed($item);
+            // Render a link instead.
+            localgov_eu_cookie_compliance_preprocess_field_item_link($item);
+            // Record the video markup in the page JSON along with the condition.
+            $elements = [
+              $media->id() => [
+                'video' => Drupal::service('renderer')->render($video, FALSE),
+                'category' => $condition,
+              ],
+            ];
+            // Do not process more rules if one matched.
+            break;
+          }
+        }
+        // End of oembed case.
+        break;
+
+      // Not an oembed.
+      default:
+    }
+
+    // Attach handler library.
+    if (!isset($item["content"]["#attached"])) {
+      $item["content"]["#attached"] = ["library" => []];
+    }
+    if (!isset($item["content"]["#attached"]["library"])) {
+      $item["content"]["#attached"]["library"] = [];
+    }
+    $variables["#attached"]["library"][] = 'localgov_eu_cookie_compliance/oembed_cookies';
+    $variables['#attached']['drupalSettings']['ecc_cookie_oembed'] = $elements;
+  }
+}
+
+/**
+ * Mark video embed with cookies-video class.
+ */
+function localgov_eu_cookie_compliance_preprocess_field_item_oembed(&$item) {
+  // Set marker class.
+  if (!isset($item["content"]["#attributes"]["class"]) || !is_array($item["content"]["#attributes"]["class"])) {
+    $item["content"]["#attributes"]["class"] = [];
+  }
+  $item["content"]["#attributes"]["class"][] = 'cookies-video';
+
+  return $item['content'];
+}
+
+/**
+ * Generate a link to new window for video as fallback.
+ */
+function localgov_eu_cookie_compliance_preprocess_field_item_link(&$item) {
+  // Move src to href.
+  $src = $item["content"]["#attributes"]["data-src"];
+  $title = $item["content"]["#attributes"]["title"];
+  $item["content"]["#attributes"] = [];
+
+  $item["content"]["#type"] = "html_tag";
+  $item["content"]["#tag"] = "a";
+  $item["content"]["#attributes"]["href"] = $src;
+  $item["content"]["#attributes"]["title"] = $title;
+  $item["content"]["#attributes"]["target"] = "_blank";
+  $item["content"]["#value"] = $title;
 }
