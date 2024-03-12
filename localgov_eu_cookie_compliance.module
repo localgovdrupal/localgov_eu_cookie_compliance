@@ -99,6 +99,15 @@ function localgov_eu_cookie_compliance_eu_cookie_compliance_show_popup_alter(&$s
 }
 
 /**
+ * Implements hook_eu_cookie_compliance_cid_alter().
+ *
+ * Add if this is the cookie page, or not, to the cache id.
+ */
+function localgov_eu_cookie_compliance_eu_cookie_compliance_cid_alter(&$cid) {
+  $cid .= (_localgov_eu_cookie_compliance_is_cookie_settings_page() ? ':settings_page' : ':banner');
+}
+
+/**
  * Implements hook_form_FORM_ID_alter() for hook_form_eu_cookie_compliance_config_form_alter().
  *
  * Alterations:
